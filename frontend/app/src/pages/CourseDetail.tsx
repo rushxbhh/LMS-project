@@ -9,10 +9,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { useCourseStore } from '@/store';
-import { curriculumApi, enrollmentApi, CurriculumDto, LessonCurriculumDto } from '@/services/api';
+import { curriculumApi, enrollmentApi } from '@/services/api';
+import type { CurriculumDto, LessonCurriculumDto } from '@/services/api';
 import { toast } from 'sonner';
 
 // ─── Iframe video modal ───────────────────────────────────────────────────────
