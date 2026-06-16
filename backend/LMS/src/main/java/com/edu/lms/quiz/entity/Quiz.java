@@ -1,6 +1,6 @@
 package com.edu.lms.quiz.entity;
 
-import com.edu.lms.course.entity.Lesson;
+import com.edu.lms.lesson.entity.Lesson;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;

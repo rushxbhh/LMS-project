@@ -1,10 +1,10 @@
-package com.edu.lms.course.controller;
+package com.edu.lms.module.controller;
 
 import com.edu.lms.common.response.ApiResponse;
-import com.edu.lms.course.dto.CreateModuleRequest;
-import com.edu.lms.course.dto.ModuleDto;
-import com.edu.lms.course.dto.UpdateModuleRequest;
-import com.edu.lms.course.service.ModuleService;
+import com.edu.lms.module.dto.CreateModuleRequest;
+import com.edu.lms.module.dto.ModuleDto;
+import com.edu.lms.module.dto.UpdateModuleRequest;
+import com.edu.lms.module.service.ModuleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

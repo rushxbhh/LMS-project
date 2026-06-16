@@ -1,6 +1,7 @@
 package com.edu.lms.course.entity;
 
 import com.edu.lms.enrollment.entity.Enrollment;
+import com.edu.lms.module.entity.CourseModule;
 import com.edu.lms.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;

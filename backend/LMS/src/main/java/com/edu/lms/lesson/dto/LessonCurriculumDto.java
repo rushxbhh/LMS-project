@@ -1,6 +1,6 @@
-package com.edu.lms.course.dto;
+package com.edu.lms.lesson.dto;
 
-import com.edu.lms.course.entity.LessonType;
+import com.edu.lms.lesson.entity.LessonType;
 import lombok.Builder;
 import lombok.Data;
 

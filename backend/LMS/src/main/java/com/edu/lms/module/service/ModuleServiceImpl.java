@@ -1,13 +1,13 @@
-package com.edu.lms.course.service;
+package com.edu.lms.module.service;
 
 import com.edu.lms.common.exception.ResourceNotFoundException;
-import com.edu.lms.course.dto.CreateModuleRequest;
-import com.edu.lms.course.dto.ModuleDto;
-import com.edu.lms.course.dto.UpdateModuleRequest;
+import com.edu.lms.module.dto.CreateModuleRequest;
+import com.edu.lms.module.dto.ModuleDto;
+import com.edu.lms.module.dto.UpdateModuleRequest;
 import com.edu.lms.course.entity.Course;
-import com.edu.lms.course.entity.CourseModule;
+import com.edu.lms.module.entity.CourseModule;
 import com.edu.lms.course.repository.CourseRepository;
-import com.edu.lms.course.repository.ModuleRepository;
+import com.edu.lms.module.repository.ModuleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

@@ -1,8 +1,8 @@
-package com.edu.lms.course.service;
+package com.edu.lms.module.service;
 
-import com.edu.lms.course.dto.CreateModuleRequest;
-import com.edu.lms.course.dto.ModuleDto;
-import com.edu.lms.course.dto.UpdateModuleRequest;
+import com.edu.lms.module.dto.CreateModuleRequest;
+import com.edu.lms.module.dto.ModuleDto;
+import com.edu.lms.module.dto.UpdateModuleRequest;
 
 import java.util.UUID;
 

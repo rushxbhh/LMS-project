@@ -1,6 +1,6 @@
-package com.edu.lms.course.repository;
+package com.edu.lms.lesson.repository;
 
-import com.edu.lms.course.entity.Lesson;
+import com.edu.lms.lesson.entity.Lesson;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

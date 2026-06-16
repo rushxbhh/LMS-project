@@ -1,4 +1,4 @@
-package com.edu.lms.course.entity;
+package com.edu.lms.lesson.entity;
 
 public enum LessonType {
 

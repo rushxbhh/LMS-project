@@ -2,11 +2,11 @@ package com.edu.lms.course.service;
 
 import com.edu.lms.common.exception.ResourceNotFoundException;
 import com.edu.lms.course.dto.CurriculumDto;
-import com.edu.lms.course.dto.LessonCurriculumDto;
-import com.edu.lms.course.dto.ModuleCurriculumDto;
+import com.edu.lms.lesson.dto.LessonCurriculumDto;
+import com.edu.lms.module.dto.ModuleCurriculumDto;
 import com.edu.lms.course.entity.Course;
-import com.edu.lms.course.entity.CourseModule;
-import com.edu.lms.course.entity.Lesson;
+import com.edu.lms.module.entity.CourseModule;
+import com.edu.lms.lesson.entity.Lesson;
 import com.edu.lms.course.repository.CourseRepository;
 import com.edu.lms.enrollment.entity.EnrollmentStatus;
 import com.edu.lms.enrollment.repository.EnrollmentRepository;

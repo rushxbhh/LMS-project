@@ -2,9 +2,9 @@ package com.edu.lms.quiz.service;
 
 import com.edu.lms.common.exception.BusinessException;
 import com.edu.lms.common.exception.ResourceNotFoundException;
-import com.edu.lms.course.entity.Lesson;
-import com.edu.lms.course.entity.LessonType;
-import com.edu.lms.course.repository.LessonRepository;
+import com.edu.lms.lesson.entity.Lesson;
+import com.edu.lms.lesson.entity.LessonType;
+import com.edu.lms.lesson.repository.LessonRepository;
 import com.edu.lms.enrollment.entity.EnrollmentStatus;
 import com.edu.lms.enrollment.repository.EnrollmentRepository;
 import com.edu.lms.quiz.dto.*;

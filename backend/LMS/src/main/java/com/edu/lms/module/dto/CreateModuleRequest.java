@@ -1,4 +1,4 @@
-package com.edu.lms.course.dto;
+package com.edu.lms.module.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

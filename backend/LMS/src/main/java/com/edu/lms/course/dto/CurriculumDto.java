@@ -1,5 +1,6 @@
 package com.edu.lms.course.dto;
 
+import com.edu.lms.module.dto.ModuleCurriculumDto;
 import lombok.Builder;
 import lombok.Data;
 

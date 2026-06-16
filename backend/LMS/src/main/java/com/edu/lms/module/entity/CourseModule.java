@@ -1,5 +1,7 @@
-package com.edu.lms.course.entity;
+package com.edu.lms.module.entity;
 
+import com.edu.lms.course.entity.Course;
+import com.edu.lms.lesson.entity.Lesson;
 import jakarta.persistence.*;
 import lombok.*;
 
