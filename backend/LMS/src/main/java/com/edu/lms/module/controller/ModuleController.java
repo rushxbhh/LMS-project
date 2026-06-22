@@ -6,6 +6,7 @@ import com.edu.lms.module.dto.ModuleDto;
 import com.edu.lms.module.dto.UpdateModuleRequest;
 import com.edu.lms.module.service.ModuleService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,40 +20,35 @@ public class ModuleController {
     private final ModuleService moduleService;
 
     @PostMapping("/{courseId}/modules")
-    @Operation(summary = "create module within the course")
+    @Operation(summary = "Create a module within a course")
     public ApiResponse<ModuleDto> createModule(
             @PathVariable UUID courseId,
-            @RequestBody CreateModuleRequest request) {
+            @Valid @RequestBody CreateModuleRequest request) {
 
-        return ApiResponse.success(
-                "Module created",
-                moduleService.createModule(
-                        courseId,
-                        request));
+        return ApiResponse.success("Module created",
+                moduleService.createModule(courseId, request));
     }
 
     @PutMapping("/{courseId}/modules/{moduleId}")
-    @Operation(summary = "update module with id")
+    @Operation(summary = "Update module — validates courseId matches module's course")
     public ApiResponse<ModuleDto> updateModule(
+            @PathVariable UUID courseId,
             @PathVariable UUID moduleId,
-            @RequestBody UpdateModuleRequest request) {
+            @Valid @RequestBody UpdateModuleRequest request) {
 
-        return ApiResponse.success(
-                "Module updated",
-                moduleService.updateModule(
-                        moduleId,
-                        request));
+        // FIX: courseId is now passed to and validated inside the service
+        return ApiResponse.success("Module updated",
+                moduleService.updateModule(courseId, moduleId, request));
     }
 
-    @Operation(summary = "delete module within the course")
     @DeleteMapping("/{courseId}/modules/{moduleId}")
+    @Operation(summary = "Delete a module and cascade its lessons")
     public ApiResponse<String> deleteModule(
+            @PathVariable UUID courseId,
             @PathVariable UUID moduleId) {
 
-        moduleService.deleteModule(moduleId);
-
-        return ApiResponse.success(
-                "Module deleted",
-                "SUCCESS");
+        // FIX: courseId is now passed to and validated inside the service
+        moduleService.deleteModule(courseId, moduleId);
+        return ApiResponse.success("Module deleted", "SUCCESS");
     }
 }

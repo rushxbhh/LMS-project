@@ -4,6 +4,7 @@ import com.edu.lms.common.exception.BusinessException;
 import com.edu.lms.common.exception.ResourceNotFoundException;
 import com.edu.lms.common.response.ApiResponse;
 import com.edu.lms.course.entity.Course;
+import com.edu.lms.course.entity.CourseStatus;
 import com.edu.lms.course.repository.CourseRepository;
 import com.edu.lms.enrollment.entity.Enrollment;
 import com.edu.lms.enrollment.entity.EnrollmentStatus;
@@ -25,9 +26,9 @@ import java.util.UUID;
 public class EnrollmentController {
 
     private final EnrollmentRepository enrollmentRepository;
-    private final CourseRepository courseRepository;
+    private final CourseRepository     courseRepository;
 
-    // ===== POST /api/v1/enrollments/courses/{courseId} =====
+    // ── Enroll ───────────────────────────────────────────────────────────────
 
     @PostMapping("/courses/{courseId}")
     @Operation(summary = "Enroll the current user in a course")
@@ -37,6 +38,11 @@ public class EnrollmentController {
 
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+
+        // FIX: Prevent enrollment in DRAFT or ARCHIVED courses
+        if (course.getStatus() != CourseStatus.PUBLISHED) {
+            throw new BusinessException("You can only enroll in published courses");
+        }
 
         boolean alreadyEnrolled = enrollmentRepository
                 .existsByStudentIdAndCourseIdAndStatus(
@@ -55,13 +61,18 @@ public class EnrollmentController {
         return ResponseEntity.ok(ApiResponse.success("Enrolled successfully"));
     }
 
-    // ===== GET /api/v1/enrollments/courses/{courseId}/status =====
+    // ── Status check ─────────────────────────────────────────────────────────
 
     @GetMapping("/courses/{courseId}/status")
-    @Operation(summary = "Check if the current user is enrolled")
+    @Operation(summary = "Check if the current user is enrolled in a course")
     public ResponseEntity<ApiResponse<EnrollmentStatusDto>> checkStatus(
             @PathVariable UUID courseId,
             @AuthenticationPrincipal User currentUser) {
+
+        // FIX: Validate courseId exists — return 404 instead of false for bad IDs
+        if (!courseRepository.existsById(courseId)) {
+            throw new ResourceNotFoundException("Course not found");
+        }
 
         if (currentUser == null) {
             return ResponseEntity.ok(

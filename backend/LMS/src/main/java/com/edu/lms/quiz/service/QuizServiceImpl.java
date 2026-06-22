@@ -28,13 +28,13 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 public class QuizServiceImpl implements QuizService {
 
-    private final QuizRepository         quizRepository;
-    private final QuestionRepository     questionRepository;
-    private final QuizAttemptRepository  attemptRepository;
-    private final LessonRepository       lessonRepository;
-    private final EnrollmentRepository   enrollmentRepository;
+    private final QuizRepository        quizRepository;
+    private final QuestionRepository    questionRepository;
+    private final QuizAttemptRepository attemptRepository;
+    private final LessonRepository      lessonRepository;
+    private final EnrollmentRepository  enrollmentRepository;
 
-    // ── Quiz CRUD ─────────────────────────────────────────────────────────
+    // ── Quiz CRUD ─────────────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -97,13 +97,21 @@ public class QuizServiceImpl implements QuizService {
     @Transactional
     public QuizDto publishQuiz(UUID quizId) {
         Quiz quiz = findQuiz(quizId);
-        if (quiz.getQuestions().isEmpty())
+
+        // FIX: guard against re-publishing
+        if (Boolean.TRUE.equals(quiz.getPublished())) {
+            throw new BusinessException("Quiz is already published");
+        }
+
+        if (quiz.getQuestions().isEmpty()) {
             throw new BusinessException("Cannot publish a quiz with no questions");
+        }
+
         quiz.setPublished(true);
         return mapToDto(quizRepository.save(quiz));
     }
 
-    // ── Question CRUD ─────────────────────────────────────────────────────
+    // ── Question CRUD ─────────────────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -121,7 +129,7 @@ public class QuizServiceImpl implements QuizService {
                 .options(buildOptions(req))
                 .build();
 
-        return mapToQuestionDto(questionRepository.save(question));
+        return mapToQuestionDto(questionRepository.save(question), true);
     }
 
     @Override
@@ -136,36 +144,50 @@ public class QuizServiceImpl implements QuizService {
         q.setExplanation(req.getExplanation());
         q.getOptions().clear();
         q.getOptions().addAll(buildOptions(req));
-        return mapToQuestionDto(questionRepository.save(q));
+        return mapToQuestionDto(questionRepository.save(q), true);
     }
 
     @Override
     @Transactional
     public void deleteQuestion(UUID questionId) {
-        questionRepository.delete(findQuestion(questionId));
+        Question question = findQuestion(questionId);
+        Quiz quiz = question.getQuiz();
+
+        // FIX: guard against deleting the last question of a published quiz
+        if (Boolean.TRUE.equals(quiz.getPublished()) && quiz.getQuestions().size() == 1) {
+            throw new BusinessException(
+                    "Cannot delete the last question of a published quiz. Unpublish the quiz first.");
+        }
+
+        questionRepository.delete(question);
     }
 
+    /**
+     * FIX: correct answers are HIDDEN from students.
+     * Teachers/Admins see full options; students see options without correct flag.
+     */
     @Override
     @Transactional(readOnly = true)
     public List<QuestionDto> getQuestions(UUID quizId) {
+        boolean isTeacherOrAdmin = currentUserHasRole(User.Role.TEACHER, User.Role.ADMIN);
+
         return findQuiz(quizId).getQuestions().stream()
                 .sorted(Comparator.comparingInt(q -> q.getOrderIndex() == null ? 999 : q.getOrderIndex()))
-                .map(this::mapToQuestionDto)
+                .map(q -> mapToQuestionDto(q, isTeacherOrAdmin))
                 .toList();
     }
 
-    // ── Student attempts ──────────────────────────────────────────────────
+    // ── Student attempts ──────────────────────────────────────────────────────
 
     @Override
     @Transactional
     public AttemptResultDto submitAttempt(UUID quizId, SubmitAttemptRequest req) {
-        User  student = requireCurrentUser();
-        Quiz  quiz    = findQuiz(quizId);
+        User student = requireCurrentUser();
+        Quiz quiz    = findQuiz(quizId);
 
-        if (!quiz.getPublished())
+        if (!Boolean.TRUE.equals(quiz.getPublished()))
             throw new BusinessException("This quiz is not published yet");
 
-        // Enrollment check (only if quiz is linked to a lesson/course)
         if (quiz.getLesson() != null) {
             UUID courseId = quiz.getLesson().getModule().getCourse().getId();
             boolean enrolled = enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(
@@ -174,7 +196,6 @@ public class QuizServiceImpl implements QuizService {
                 throw new AccessDeniedException("You must be enrolled to attempt this quiz");
         }
 
-        // Attempt-limit check
         if (quiz.getMaxAttempts() != null) {
             long past = attemptRepository.countByStudentIdAndQuizId(student.getId(), quizId);
             if (past >= quiz.getMaxAttempts())
@@ -182,7 +203,6 @@ public class QuizServiceImpl implements QuizService {
                         "You have used all " + quiz.getMaxAttempts() + " attempt(s) for this quiz");
         }
 
-        // Grade
         Map<UUID, List<Integer>> answers =
                 req.getAnswers() != null ? req.getAnswers() : Collections.emptyMap();
 
@@ -190,8 +210,8 @@ public class QuizServiceImpl implements QuizService {
         List<QuestionResultDto> results = new ArrayList<>();
 
         for (Question q : quiz.getQuestions()) {
-            List<QuestionOption> opts    = q.getOptions();
-            List<Integer>        chosen  = answers.getOrDefault(q.getId(), Collections.emptyList());
+            List<QuestionOption> opts   = q.getOptions();
+            List<Integer>        chosen = answers.getOrDefault(q.getId(), Collections.emptyList());
 
             List<Integer> correctIdx = IntStream.range(0, opts.size())
                     .filter(i -> Boolean.TRUE.equals(opts.get(i).getCorrect()))
@@ -199,8 +219,8 @@ public class QuizServiceImpl implements QuizService {
 
             boolean correct = new HashSet<>(chosen).equals(new HashSet<>(correctIdx));
             int earned = correct ? q.getPoints() : 0;
-            totalEarned     += earned;
-            totalAvailable  += q.getPoints();
+            totalEarned    += earned;
+            totalAvailable += q.getPoints();
 
             results.add(QuestionResultDto.builder()
                     .questionId(q.getId())
@@ -214,8 +234,8 @@ public class QuizServiceImpl implements QuizService {
                     .build());
         }
 
-        int     pct    = totalAvailable == 0 ? 0 :
-                (int) Math.round((double) totalEarned / totalAvailable * 100);
+        int     pct    = totalAvailable == 0 ? 0
+                : (int) Math.round((double) totalEarned / totalAvailable * 100);
         boolean passed = pct >= quiz.getPassingScore();
 
         QuizAttempt attempt = attemptRepository.save(QuizAttempt.builder()
@@ -248,7 +268,7 @@ public class QuizServiceImpl implements QuizService {
     @Transactional(readOnly = true)
     public List<AttemptResultDto> getMyAttempts(UUID quizId) {
         User student = requireCurrentUser();
-        findQuiz(quizId);
+        findQuiz(quizId); // 404 guard
         return attemptRepository
                 .findWithQuizByStudentIdAndQuizId(student.getId(), quizId)
                 .stream()
@@ -267,7 +287,7 @@ public class QuizServiceImpl implements QuizService {
                 .toList();
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Quiz findQuiz(UUID id) {
         return quizRepository.findWithLessonById(id)
@@ -287,8 +307,19 @@ public class QuizServiceImpl implements QuizService {
         throw new AccessDeniedException("Authentication required");
     }
 
+    private boolean currentUserHasRole(User.Role... roles) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return false;
+        if (auth.getPrincipal() instanceof User u) {
+            for (User.Role role : roles) {
+                if (u.getRole() == role) return true;
+            }
+        }
+        return false;
+    }
+
     private void validateOptions(CreateQuestionRequest req) {
-        if (req.getType() == QuestionType.TRUE_FALSE) return; // auto-generated
+        if (req.getType() == QuestionType.TRUE_FALSE) return;
 
         if (req.getOptions() == null || req.getOptions().size() < 2)
             throw new BusinessException("At least 2 options are required");
@@ -334,7 +365,13 @@ public class QuizServiceImpl implements QuizService {
                 .build();
     }
 
-    private QuestionDto mapToQuestionDto(Question q) {
+    /**
+     * Maps a Question to its DTO.
+     *
+     * @param showCorrect true for TEACHER/ADMIN responses; false strips the
+     *                    correct flag so students cannot see answers before attempting.
+     */
+    private QuestionDto mapToQuestionDto(Question q, boolean showCorrect) {
         return QuestionDto.builder()
                 .id(q.getId())
                 .text(q.getText())
@@ -345,7 +382,8 @@ public class QuizServiceImpl implements QuizService {
                 .options(q.getOptions().stream()
                         .map(o -> QuestionDto.OptionDto.builder()
                                 .text(o.getText())
-                                .correct(o.getCorrect())
+                                // FIX: null for student view — hides correct answers
+                                .correct(showCorrect ? o.getCorrect() : null)
                                 .build())
                         .toList())
                 .build();

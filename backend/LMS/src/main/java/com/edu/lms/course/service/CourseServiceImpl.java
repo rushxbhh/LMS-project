@@ -1,5 +1,6 @@
 package com.edu.lms.course.service;
 
+import com.edu.lms.common.exception.BusinessException;
 import com.edu.lms.common.exception.ResourceNotFoundException;
 import com.edu.lms.course.dto.CourseDto;
 import com.edu.lms.course.dto.CreateCourseRequest;
@@ -10,9 +11,14 @@ import com.edu.lms.course.repository.CourseRepository;
 import com.edu.lms.user.entity.User;
 import com.edu.lms.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -20,14 +26,22 @@ import java.util.UUID;
 public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
-    private final UserRepository userRepository;
+    private final UserRepository   userRepository;
+
+    // ── Create ───────────────────────────────────────────────────────────────
 
     @Override
+    @Transactional
     public CourseDto createCourse(CreateCourseRequest request) {
-
         User teacher = userRepository.findById(request.getTeacherId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Teacher not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+
+        // Only TEACHER or ADMIN roles should be allowed; enforce ownership intent
+        User caller = currentUser().orElse(null);
+        if (caller != null
+                && caller.getRole() == User.Role.STUDENT) {
+            throw new AccessDeniedException("Students cannot create courses");
+        }
 
         Course course = Course.builder()
                 .title(request.getTitle())
@@ -44,73 +58,110 @@ public class CourseServiceImpl implements CourseService {
         return mapToDto(courseRepository.save(course));
     }
 
-    @Override
-    public List<CourseDto> getAllPublishedCourses() {
+    // ── Read ─────────────────────────────────────────────────────────────────
 
-        return courseRepository.findByStatus(
-                        CourseStatus.PUBLISHED)
+    @Override
+    @Transactional(readOnly = true)
+    public List<CourseDto> getAllPublishedCourses() {
+        return courseRepository.findByStatus(CourseStatus.PUBLISHED)
                 .stream()
                 .map(this::mapToDto)
                 .toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CourseDto getCourseById(UUID id) {
-
-        Course course = courseRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Course not found"));
-
-        return mapToDto(course);
+        return mapToDto(courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found")));
     }
 
+    // ── Update (null-safe PATCH semantics) ───────────────────────────────────
+
     @Override
-    public CourseDto updateCourse(UUID id,
-                                  UpdateCourseRequest request) {
+    @Transactional
+    public CourseDto updateCourse(UUID id, UpdateCourseRequest request) {
+        Course course = findAndCheckOwnership(id);
 
-        Course course = courseRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Course not found"));
-
-        course.setTitle(request.getTitle());
-        course.setDescription(request.getDescription());
-        course.setThumbnailUrl(request.getThumbnailUrl());
-        course.setPrice(request.getPrice());
-        course.setIsFree(request.getIsFree());
-        course.setCategory(request.getCategory());
-        course.setLevel(request.getLevel());
+        // Only update fields that were actually sent (non-null)
+        if (request.getTitle()        != null) course.setTitle(request.getTitle());
+        if (request.getDescription()  != null) course.setDescription(request.getDescription());
+        if (request.getThumbnailUrl() != null) course.setThumbnailUrl(request.getThumbnailUrl());
+        if (request.getPrice()        != null) course.setPrice(request.getPrice());
+        if (request.getIsFree()       != null) course.setIsFree(request.getIsFree());
+        if (request.getCategory()     != null) course.setCategory(request.getCategory());
+        if (request.getLevel()        != null) course.setLevel(request.getLevel());
 
         return mapToDto(courseRepository.save(course));
     }
 
+    // ── Delete ───────────────────────────────────────────────────────────────
+
     @Override
+    @Transactional
     public void deleteCourse(UUID id) {
-
-        Course course = courseRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Course not found"));
-
-        courseRepository.delete(course);
+        courseRepository.delete(findAndCheckOwnership(id));
     }
 
-    @Override
-    public CourseDto publishCourse(UUID id) {
+    // ── Publish ──────────────────────────────────────────────────────────────
 
-        Course course = courseRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Course not found"));
+    @Override
+    @Transactional
+    public CourseDto publishCourse(UUID id) {
+        Course course = findAndCheckOwnership(id);
+
+        if (course.getStatus() == CourseStatus.PUBLISHED) {
+            throw new BusinessException("Course is already published");
+        }
+
+        // Must have at least one module with at least one lesson
+        boolean hasLesson = course.getModules().stream()
+                .anyMatch(m -> !m.getLessons().isEmpty());
+        if (!hasLesson) {
+            throw new BusinessException(
+                    "Cannot publish a course with no lessons. Add at least one module with a lesson first.");
+        }
 
         course.setStatus(CourseStatus.PUBLISHED);
-
         return mapToDto(courseRepository.save(course));
     }
 
-    private CourseDto mapToDto(Course course) {
+    // ── Ownership helper ─────────────────────────────────────────────────────
 
+    /**
+     * Loads the course and verifies the caller is the owner (TEACHER)
+     * or an ADMIN. Throws 404 / 403 appropriately.
+     */
+    private Course findAndCheckOwnership(UUID courseId) {
+        Course course = courseRepository.findWithModulesAndLessonsById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+
+        User caller = currentUser()
+                .orElseThrow(() -> new AccessDeniedException("Authentication required"));
+
+        if (caller.getRole() == User.Role.ADMIN) return course; // admins bypass ownership
+
+        if (course.getTeacher() == null
+                || !course.getTeacher().getId().equals(caller.getId())) {
+            throw new AccessDeniedException("You do not own this course");
+        }
+
+        return course;
+    }
+
+    private Optional<User> currentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()
+                || "anonymousUser".equals(auth.getPrincipal())) {
+            return Optional.empty();
+        }
+        if (auth.getPrincipal() instanceof User u) return Optional.of(u);
+        return Optional.empty();
+    }
+
+    // ── Mapper ───────────────────────────────────────────────────────────────
+
+    private CourseDto mapToDto(Course course) {
         return CourseDto.builder()
                 .id(course.getId())
                 .title(course.getTitle())
