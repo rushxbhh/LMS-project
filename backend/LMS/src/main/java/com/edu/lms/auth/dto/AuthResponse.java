@@ -13,4 +13,5 @@ public class AuthResponse {
     private String name;
     private String role;
     private String avatarUrl;
+    private String instructorApplicationStatus;
 }

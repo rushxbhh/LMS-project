@@ -1,6 +1,7 @@
 package com.edu.lms.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 @Data
@@ -17,4 +18,8 @@ public class RegisterRequest {
 
     @NotBlank
     private String avatarUrl;
+
+    @NotNull(message = "Role is required")
+    private RegistrationRole role;
+    
 }

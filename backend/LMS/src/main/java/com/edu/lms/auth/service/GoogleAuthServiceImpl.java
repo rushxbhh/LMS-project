@@ -1,5 +1,7 @@
 package com.edu.lms.auth.service;
 
+import com.edu.lms.auth.dto.AuthResponse;
+import com.edu.lms.auth.dto.RegistrationRole;
 import com.edu.lms.common.util.JwtUtil;
 import com.edu.lms.user.entity.User;
 import com.edu.lms.user.repository.UserRepository;
@@ -33,30 +35,44 @@ public class GoogleAuthServiceImpl {
     private static final String TOKEN_URL   = "https://oauth2.googleapis.com/token";
     private static final String USER_INFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 
-    public String login(String code) {
-        String accessToken = exchangeCodeForToken(code);
-        Map<String, Object> userInfo = fetchUserInfo(accessToken);
+  public AuthResponse login(String code, RegistrationRole intendedRole) {
+    String accessToken = exchangeCodeForToken(code);
+    Map<String, Object> userInfo = fetchUserInfo(accessToken);
 
-        String email      = (String) userInfo.get("email");
-        String name       = (String) userInfo.get("name");
-        String providerId = (String) userInfo.get("sub");      // Google's unique user ID
-        String avatarUrl  = (String) userInfo.get("picture");
+    String email      = (String) userInfo.get("email");
+    String name       = (String) userInfo.get("name");
+    String providerId = (String) userInfo.get("sub");
+    String avatarUrl  = (String) userInfo.get("picture");
 
-        // Find existing user or create new one
-        User user = userRepository.findByEmail(email)
-                .orElseGet(() -> userRepository.save(
-                        User.builder()
-                                .email(email)
-                                .name(name)
-                                .providerId(providerId)
-                                .avatarUrl(avatarUrl)
-                                .role(User.Role.STUDENT)
-                                .provider(User.Provider.GOOGLE)
-                                .build()
-                ));
+    // intendedRole only ever applies to account CREATION below.
+    // An existing user's role is never touched here — login isn't registration.
+    User user = userRepository.findByEmail(email)
+            .orElseGet(() -> {
+                boolean registeringAsTeacher = intendedRole == RegistrationRole.TEACHER;
+                return userRepository.save(User.builder()
+                        .email(email)
+                        .name(name)
+                        .providerId(providerId)
+                        .avatarUrl(avatarUrl)
+                        .role(registeringAsTeacher ? User.Role.TEACHER : User.Role.STUDENT)
+                        .instructorApplicationStatus(registeringAsTeacher
+                                ? User.InstructorApplicationStatus.PENDING : null)
+                        .provider(User.Provider.GOOGLE)
+                        .build());
+            });
 
-        return jwtUtil.generateAccessToken(user);
-    }
+    return AuthResponse.builder()
+        .token(jwtUtil.generateAccessToken(user))
+        .refreshToken(jwtUtil.generateRefreshToken(user))
+        .userId(user.getId().toString())
+        .email(user.getEmail())
+        .name(user.getName())
+        .role(user.getRole().name())
+        .avatarUrl(user.getAvatarUrl())
+        .instructorApplicationStatus(user.getInstructorApplicationStatus() != null
+                ? user.getInstructorApplicationStatus().name() : null)
+        .build();
+}
 
     // ── private helpers ──────────────────────────────────────────────────────
 

@@ -38,10 +38,9 @@ public class CourseServiceImpl implements CourseService {
 
         // Only TEACHER or ADMIN roles should be allowed; enforce ownership intent
         User caller = currentUser().orElse(null);
-        if (caller != null
-                && caller.getRole() == User.Role.STUDENT) {
+           if (caller != null && caller.getRole() == User.Role.STUDENT) {
             throw new AccessDeniedException("Students cannot create courses");
-        }
+       }
 
         Course course = Course.builder()
                 .title(request.getTitle())
@@ -108,22 +107,33 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public CourseDto publishCourse(UUID id) {
-        Course course = findAndCheckOwnership(id);
+    Course course = findAndCheckOwnership(id);
 
-        if (course.getStatus() == CourseStatus.PUBLISHED) {
-            throw new BusinessException("Course is already published");
-        }
+    User caller = currentUser()
+            .orElseThrow(() -> new AccessDeniedException("Authentication required"));
 
-        // Must have at least one module with at least one lesson
-        boolean hasLesson = course.getModules().stream()
-                .anyMatch(m -> !m.getLessons().isEmpty());
-        if (!hasLesson) {
-            throw new BusinessException(
-                    "Cannot publish a course with no lessons. Add at least one module with a lesson first.");
-        }
+    if (caller.getRole() == User.Role.TEACHER
+            && caller.getInstructorApplicationStatus() != User.InstructorApplicationStatus.APPROVED) {
+        throw new AccessDeniedException(
+                "Your instructor account isn't verified yet. Submit a verification application to unlock publishing.");
+    }
 
-        course.setStatus(CourseStatus.PUBLISHED);
-        return mapToDto(courseRepository.save(course));
+    if (course.getStatus() == CourseStatus.PENDING_REVIEW) {
+        throw new BusinessException("This course is currently under instructor review");
+    }
+    if (course.getStatus() == CourseStatus.PUBLISHED) {
+        throw new BusinessException("Course is already published");
+    }
+
+    boolean hasLesson = course.getModules().stream()
+            .anyMatch(m -> !m.getLessons().isEmpty());
+    if (!hasLesson) {
+        throw new BusinessException(
+                "Cannot publish a course with no lessons. Add at least one module with a lesson first.");
+    }
+
+    course.setStatus(CourseStatus.PUBLISHED);
+    return mapToDto(courseRepository.save(course));
     }
 
     // ── Ownership helper ─────────────────────────────────────────────────────

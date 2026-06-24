@@ -53,11 +53,21 @@ public class UserService {
 
     @Transactional
     public UserDto changeUserRole(UUID userId, User.Role newRole) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        user.setRole(newRole);
-        return UserDto.from(userRepository.save(user));
+    User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+    user.setRole(newRole);
+
+    if (newRole == User.Role.TEACHER) {
+        if (user.getInstructorApplicationStatus() != User.InstructorApplicationStatus.APPROVED) {
+            user.setInstructorApplicationStatus(User.InstructorApplicationStatus.APPROVED);
+        }
+    } else {
+        user.setInstructorApplicationStatus(null);
     }
+
+    return UserDto.from(userRepository.save(user));
+}
 
     @Transactional
     public void deactivateUser(UUID userId) {
@@ -66,5 +76,13 @@ public class UserService {
         user.setActive(false);
         userRepository.save(user);
         log.info("Deactivated user: {}", userId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserDto> getAllUsers(Pageable pageable, User.Role roleFilter) {
+        Page<User> users = (roleFilter != null)
+                ? userRepository.findByRole(roleFilter, pageable)
+                : userRepository.findAll(pageable);
+        return users.map(UserDto::from);
     }
 }

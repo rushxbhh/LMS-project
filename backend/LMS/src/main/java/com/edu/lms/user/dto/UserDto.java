@@ -18,6 +18,7 @@ public class UserDto {
     private String avatarUrl;
     private String bio;
     private LocalDateTime createdAt;
+    private User.InstructorApplicationStatus instructorApplicationStatus;
 
     public static UserDto from(User user) {
         return UserDto.builder()
