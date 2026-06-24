@@ -24,6 +24,6 @@ public class CurriculumController {
             @PathVariable UUID courseId) {
 
         CurriculumDto curriculum = curriculumService.getCurriculum(courseId);
-        return ResponseEntity.ok(ApiResponse.success("fetched sucessfully", curriculum));
+        return ResponseEntity.ok(ApiResponse.success("fetched successfully", curriculum));
     }
 }

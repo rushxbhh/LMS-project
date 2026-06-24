@@ -79,7 +79,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public Page<UserDto> getAllUsers(Pageable pageable, User.Role roleFilter) {
+    public Page<UserDto> getAllUsersByRole(Pageable pageable, User.Role roleFilter) {
         Page<User> users = (roleFilter != null)
                 ? userRepository.findByRole(roleFilter, pageable)
                 : userRepository.findAll(pageable);

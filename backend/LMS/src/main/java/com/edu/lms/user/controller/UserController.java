@@ -56,17 +56,17 @@ public class UserController {
 
     // ── Admin endpoints ───────────────────────────────────────────────────────
 
-    @GetMapping
+    @GetMapping("/all/role")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "List all users, optionally filtered by role (Admin only)")
-    public ResponseEntity<ApiResponse<Page<UserDto>>> getAllUsers(
+    public ResponseEntity<ApiResponse<Page<UserDto>>> getAllUsersByRole(
         @RequestParam(required = false) User.Role role,
         Pageable pageable) {
-    return ResponseEntity.ok(ApiResponse.success("Users fetched", userService.getAllUsers(pageable, role)));
+    return ResponseEntity.ok(ApiResponse.success("Users fetched", userService.getAllUsersByRole(pageable, role)));
     }
 
 
-    @GetMapping
+    @GetMapping("/all")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "List all users with pagination (Admin only)")
     public ResponseEntity<ApiResponse<Page<UserDto>>> getAllUsers(Pageable pageable) {
