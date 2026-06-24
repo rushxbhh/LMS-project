@@ -5,8 +5,11 @@ import com.edu.lms.course.dto.CourseDto;
 import com.edu.lms.course.dto.CreateCourseRequest;
 import com.edu.lms.course.dto.UpdateCourseRequest;
 import com.edu.lms.course.service.CourseService;
+import com.edu.lms.user.entity.User;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,12 +25,13 @@ public class CourseController {
 
     @Operation(summary = "Create the course")
     @PostMapping
+    @PreAuthorize("hasRole('TEACHER')")
     public ApiResponse<CourseDto> createCourse(
-            @RequestBody CreateCourseRequest request) {
+            @RequestBody CreateCourseRequest request, @AuthenticationPrincipal User currentUser) {
 
         return ApiResponse.success(
                 "Course created",
-                courseService.createCourse(request));
+                courseService.createCourse(request, currentUser));
     }
 
     @Operation(summary = "get all published courses")
@@ -52,6 +56,7 @@ public class CourseController {
 
     @PutMapping("/{id}")
     @Operation(summary = "update the course by id")
+    @PreAuthorize("hasRole('TEACHER')")
     public ApiResponse<CourseDto> updateCourse(
             @PathVariable UUID id,
             @RequestBody UpdateCourseRequest request) {
@@ -63,6 +68,7 @@ public class CourseController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "delete the course by id")
+    @PreAuthorize("hasRole('TEACHER')")
     public ApiResponse<String> deleteCourse(
             @PathVariable UUID id) {
 

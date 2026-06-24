@@ -2,6 +2,8 @@ package com.edu.lms.user.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -13,7 +15,10 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_user_provider", columnList = "provider, provider_id")
+        // email is already UNIQUE → implicit index
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -61,22 +66,13 @@ public class User implements UserDetails {
     @Builder.Default
     private boolean active = true;
 
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 
     // ===== UserDetails contract =====
 

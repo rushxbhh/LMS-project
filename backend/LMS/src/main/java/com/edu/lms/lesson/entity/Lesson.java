@@ -7,7 +7,10 @@ import lombok.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "lessons")
+@Table(name = "lessons", indexes = {
+        @Index(name = "idx_lesson_module_id",    columnList = "module_id"),
+        @Index(name = "idx_lesson_module_order", columnList = "module_id, order_index")
+})
 @Getter
 @Setter
 @NoArgsConstructor

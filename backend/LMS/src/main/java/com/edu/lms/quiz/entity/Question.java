@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "quiz_questions")
+@Table(name = "quiz_questions", indexes = {
+        @Index(name = "idx_question_quiz_order", columnList = "quiz_id, order_index")
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Question {
 

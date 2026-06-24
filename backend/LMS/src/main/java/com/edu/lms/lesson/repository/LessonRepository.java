@@ -15,7 +15,7 @@ import java.util.UUID;
 public interface LessonRepository
         extends JpaRepository<Lesson, UUID> {
 
-    List<Lesson> findByModuleId(UUID moduleId);
+    List<Lesson> findByModuleIdOrderByOrderIndex(UUID moduleId);
 
     // LessonRepository.java
     @Query("""

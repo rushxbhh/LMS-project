@@ -9,9 +9,14 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(
-        name = "enrollments",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "course_id"})
+@Table(name = "enrollments",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "course_id"}),
+        indexes = {
+                @Index(name = "idx_enroll_student",        columnList = "student_id"),
+                @Index(name = "idx_enroll_course",         columnList = "course_id"),
+                @Index(name = "idx_enroll_student_course", columnList = "student_id, course_id"),
+                @Index(name = "idx_enroll_student_status", columnList = "student_id, status")
+        }
 )
 @Getter
 @Setter

@@ -32,8 +32,8 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
-    public CourseDto createCourse(CreateCourseRequest request) {
-        User teacher = userRepository.findById(request.getTeacherId())
+    public CourseDto createCourse(CreateCourseRequest request, User teacher) {
+        teacher = userRepository.findById(request.getTeacherId())
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
 
         // Only TEACHER or ADMIN roles should be allowed; enforce ownership intent

@@ -10,7 +10,10 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "course_modules")
+@Table(name = "course_modules", indexes = {
+        @Index(name = "idx_module_course_id",       columnList = "course_id"),
+        @Index(name = "idx_module_course_order",    columnList = "course_id, order_index")
+})
 @Getter
 @Setter
 @NoArgsConstructor
