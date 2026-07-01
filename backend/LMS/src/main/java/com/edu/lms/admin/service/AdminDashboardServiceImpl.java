@@ -10,10 +10,13 @@ import com.edu.lms.instructor.repository.InstructorApplicationRepository;
 import com.edu.lms.user.entity.User;
 import com.edu.lms.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+
+import static com.edu.lms.config.RedisConfig.CACHE_DASHBOARD;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +28,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CACHE_DASHBOARD, key = "'overview'")
     public DashboardOverviewDto getOverview() {
         return DashboardOverviewDto.builder()
                 .totalStudents(userRepository.countByRole(User.Role.STUDENT))

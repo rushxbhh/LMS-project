@@ -7,12 +7,16 @@ import com.edu.lms.user.entity.User;
 import com.edu.lms.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+
+import static com.edu.lms.config.RedisConfig.CACHE_USERS;
 
 @Slf4j
 @Service
@@ -22,6 +26,7 @@ public class UserService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CACHE_USERS, key = "#id")
     public UserDto getUserById(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -29,6 +34,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE_USERS, key = "#userId")
     public UserDto updateProfile(UUID userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -52,6 +58,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE_USERS, key = "#userId")
     public UserDto changeUserRole(UUID userId, User.Role newRole) {
     User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -70,6 +77,7 @@ public class UserService {
 }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE_USERS, key = "#userId")
     public void deactivateUser(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));

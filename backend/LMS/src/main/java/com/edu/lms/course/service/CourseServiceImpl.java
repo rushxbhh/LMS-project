@@ -11,6 +11,9 @@ import com.edu.lms.course.repository.CourseRepository;
 import com.edu.lms.user.entity.User;
 import com.edu.lms.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import static com.edu.lms.config.RedisConfig.CACHE_COURSE;
+import static com.edu.lms.config.RedisConfig.CACHE_COURSES;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +38,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = CACHE_COURSES, key = "'all'")
     public CourseDto createCourse(CreateCourseRequest request, User teacher) {
         teacher = userRepository.findById(request.getTeacherId())
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
@@ -61,6 +68,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CACHE_COURSES, key = "'all'")
     public List<CourseDto> getAllPublishedCourses() {
         return courseRepository.findByStatus(CourseStatus.PUBLISHED)
                 .stream()
@@ -70,6 +78,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CACHE_COURSE, key = "#id")
     public CourseDto getCourseById(UUID id) {
         return mapToDto(courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found")));
@@ -79,6 +88,10 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_COURSES, key = "'all'"),
+            @CacheEvict(cacheNames = CACHE_COURSE,  key = "#id")
+    })
     public CourseDto updateCourse(UUID id, UpdateCourseRequest request) {
         Course course = findAndCheckOwnership(id);
 
@@ -98,6 +111,10 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_COURSES, key = "'all'"),
+            @CacheEvict(cacheNames = CACHE_COURSE,  key = "#id")
+    })
     public void deleteCourse(UUID id) {
         courseRepository.delete(findAndCheckOwnership(id));
     }
@@ -106,6 +123,10 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_COURSES, key = "'all'"),
+            @CacheEvict(cacheNames = CACHE_COURSE,  key = "#id")
+    })
     public CourseDto publishCourse(UUID id) {
     Course course = findAndCheckOwnership(id);
 
