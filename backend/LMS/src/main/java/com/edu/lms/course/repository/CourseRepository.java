@@ -3,6 +3,7 @@ package com.edu.lms.course.repository;
 import com.edu.lms.course.dto.CourseEnrollmentSummaryDto;
 import com.edu.lms.course.entity.Course;
 import com.edu.lms.course.entity.CourseStatus;
+import com.edu.lms.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,6 +25,16 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     WHERE c.id = :id
     """)
     Optional<Course> findWithModulesAndLessonsById(@Param("id") UUID id);
+
+
+    // NEW
+    List<Course> findByTeacherOrderByCreatedAtDesc(User teacher);
+
+    // Optional (use later for filters)
+    List<Course> findByTeacherAndStatusOrderByCreatedAtDesc(
+            User teacher,
+            CourseStatus status
+    );
 
 
     long countByStatus(CourseStatus status);

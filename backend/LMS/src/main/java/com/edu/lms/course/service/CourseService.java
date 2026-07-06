@@ -2,6 +2,7 @@ package com.edu.lms.course.service;
 import com.edu.lms.course.dto.CourseDto;
 import com.edu.lms.course.dto.CreateCourseRequest;
 import com.edu.lms.course.dto.UpdateCourseRequest;
+import com.edu.lms.course.entity.CourseStatus;
 import com.edu.lms.user.entity.User;
 
 import java.util.List;
@@ -19,6 +20,10 @@ public interface CourseService {
                            UpdateCourseRequest request);
 
     void deleteCourse(UUID id);
+
+    //List<CourseDto> getMyCourses();
+
+    List<CourseDto> getMyCourses(CourseStatus status);
 
     CourseDto publishCourse(UUID id);
 }

@@ -4,6 +4,7 @@ import com.edu.lms.common.response.ApiResponse;
 import com.edu.lms.course.dto.CourseDto;
 import com.edu.lms.course.dto.CreateCourseRequest;
 import com.edu.lms.course.dto.UpdateCourseRequest;
+import com.edu.lms.course.entity.CourseStatus;
 import com.edu.lms.course.service.CourseService;
 import com.edu.lms.user.entity.User;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +42,22 @@ public class CourseController {
         return ApiResponse.success(
                 "Courses fetched",
                 courseService.getAllPublishedCourses());
+    }
+
+    @GetMapping("/my")
+    @PreAuthorize("hasRole('TEACHER')")
+    @Operation(summary = "Get all courses owned by the logged in teacher")
+    public ApiResponse<List<CourseDto>> getMyCourses(
+
+            @RequestParam(required = false)
+            CourseStatus status
+
+    ) {
+
+        return ApiResponse.success(
+                "Teacher courses fetched",
+                courseService.getMyCourses(status)
+        );
     }
 
 

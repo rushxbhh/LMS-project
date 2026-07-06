@@ -84,6 +84,31 @@ public class CourseServiceImpl implements CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found")));
     }
 
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CourseDto> getMyCourses(CourseStatus status) {
+
+        User teacher = currentUser()
+                .orElseThrow(() -> new AccessDeniedException("User not authenticated"));
+
+        List<Course> courses;
+
+        if (status == null) {
+            courses = courseRepository.findByTeacherOrderByCreatedAtDesc(teacher);
+        } else {
+            courses = courseRepository
+                    .findByTeacherAndStatusOrderByCreatedAtDesc(
+                            teacher,
+                            status
+                    );
+        }
+
+        return courses.stream()
+                .map(this::mapToDto)
+                .toList();
+    }
+
     // ── Update (null-safe PATCH semantics) ───────────────────────────────────
 
     @Override
