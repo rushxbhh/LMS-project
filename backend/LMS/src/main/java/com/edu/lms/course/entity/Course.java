@@ -69,6 +69,14 @@ public class Course {
     @Builder.Default
     private List<Enrollment> enrollments = new ArrayList<>();
 
+    @Builder.Default
+    private Double averageRating = 0.0;   // e.g. 4.7, recalculated on every review write
+
+    @Builder.Default
+    private Integer reviewCount = 0;
+
+    @Builder.Default
+    private Integer enrolledCount = 0;    // used in section B for "most enrolled" sort
 
     @Builder.Default
     private Integer totalLessons = 0;

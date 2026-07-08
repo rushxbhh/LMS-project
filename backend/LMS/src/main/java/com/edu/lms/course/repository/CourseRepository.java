@@ -2,12 +2,17 @@ package com.edu.lms.course.repository;
 
 import com.edu.lms.course.dto.CourseEnrollmentSummaryDto;
 import com.edu.lms.course.entity.Course;
+import com.edu.lms.course.entity.CourseLevel;
 import com.edu.lms.course.entity.CourseStatus;
 import com.edu.lms.user.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,4 +66,26 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
             User teacher,
             Boolean isFree
     );
+
+
+    @Modifying
+    @Query("UPDATE Course c SET c.enrolledCount = COALESCE(c.enrolledCount, 0) + 1 WHERE c.id = :courseId")
+    void incrementEnrolledCount(@Param("courseId") UUID courseId);
+
+    @Query("""
+        SELECT c FROM Course c
+        WHERE c.status = com.edu.lms.course.entity.CourseStatus.PUBLISHED
+          AND (:search IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%'))
+                                OR LOWER(c.category) LIKE LOWER(CONCAT('%', :search, '%')))
+          AND (:category IS NULL OR c.category = :category)
+          AND (:level IS NULL OR c.level = :level)
+          AND (:minPrice IS NULL OR c.price >= :minPrice)
+          AND (:maxPrice IS NULL OR c.price <= :maxPrice)
+        """)
+    Page<Course> searchCourses(@Param("search") String search,
+                               @Param("category") String category,
+                               @Param("level") CourseLevel level,
+                               @Param("minPrice") BigDecimal minPrice,
+                               @Param("maxPrice") BigDecimal maxPrice,
+                               Pageable pageable);
 }

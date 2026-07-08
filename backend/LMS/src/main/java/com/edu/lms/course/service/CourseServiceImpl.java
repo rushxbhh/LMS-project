@@ -6,6 +6,7 @@ import com.edu.lms.course.dto.CourseDto;
 import com.edu.lms.course.dto.CreateCourseRequest;
 import com.edu.lms.course.dto.UpdateCourseRequest;
 import com.edu.lms.course.entity.Course;
+import com.edu.lms.course.entity.CourseLevel;
 import com.edu.lms.course.entity.CourseStatus;
 import com.edu.lms.course.repository.CourseRepository;
 import com.edu.lms.user.entity.User;
@@ -14,12 +15,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -215,6 +219,88 @@ public class CourseServiceImpl implements CourseService {
         return Optional.empty();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CourseDto> searchCourses(String search, String category, CourseLevel level,
+                                         BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
+        // Not cached — filter/sort combinations are too varied for Redis to pay off here,
+        // unlike the flat "all published courses" list.
+        String q = (search == null || search.isBlank()) ? null : search.trim();
+        return courseRepository.searchCourses(q, category, level, minPrice, maxPrice, pageable)
+                .map(this::mapToDto);
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_COURSES, key = "'all'"),
+            @CacheEvict(cacheNames = CACHE_COURSE,  key = "#id")
+    })
+    public CourseDto submitForReview(UUID id) {
+        Course course = findAndCheckOwnership(id);
+
+        if (course.getStatus() != CourseStatus.DRAFT) {
+            throw new BusinessException("Only draft courses can be submitted for review");
+        }
+        boolean hasLesson = course.getModules().stream().anyMatch(m -> !m.getLessons().isEmpty());
+        if (!hasLesson) {
+            throw new BusinessException("Add at least one module with a lesson before submitting for review");
+        }
+
+        course.setStatus(CourseStatus.PENDING_REVIEW);
+        return mapToDto(courseRepository.save(course));
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_COURSES, key = "'all'"),
+            @CacheEvict(cacheNames = CACHE_COURSE,  key = "#id")
+    })
+    public CourseDto approveCourse(UUID id) {
+        Course course = courseRepository.findWithModulesAndLessonsById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+        requireAdmin();
+
+        if (course.getStatus() != CourseStatus.PENDING_REVIEW) {
+            throw new BusinessException("Only courses pending review can be approved");
+        }
+        course.setStatus(CourseStatus.PUBLISHED);
+        return mapToDto(courseRepository.save(course));
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_COURSES, key = "'all'"),
+            @CacheEvict(cacheNames = CACHE_COURSE,  key = "#id")
+    })
+    public CourseDto rejectCourse(UUID id, String reason) {
+        Course course = courseRepository.findWithModulesAndLessonsById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+        requireAdmin();
+
+        if (course.getStatus() != CourseStatus.PENDING_REVIEW) {
+            throw new BusinessException("Only courses pending review can be rejected");
+        }
+        course.setStatus(CourseStatus.DRAFT); // back to draft so the teacher can fix and resubmit
+        return mapToDto(courseRepository.save(course));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CourseDto> getCoursesByStatus(CourseStatus status) {
+        requireAdmin();
+        return courseRepository.findByStatus(status).stream().map(this::mapToDto).toList();
+    }
+
+    private void requireAdmin() {
+        User caller = currentUser().orElseThrow(() -> new AccessDeniedException("Authentication required"));
+        if (caller.getRole() != User.Role.ADMIN) {
+            throw new AccessDeniedException("Admin access required");
+        }
+    }
+
     // ── Mapper ───────────────────────────────────────────────────────────────
 
     private CourseDto mapToDto(Course course) {
@@ -230,6 +316,9 @@ public class CourseServiceImpl implements CourseService {
                 .status(course.getStatus())
                 .totalLessons(course.getTotalLessons())
                 .totalDurationMinutes(course.getTotalDurationMinutes())
+                .averageRating(course.getAverageRating())
+                .reviewCount(course.getReviewCount())
+                .enrolledCount(course.getEnrolledCount())
                 .build();
     }
 }

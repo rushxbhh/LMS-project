@@ -6,17 +6,23 @@ import com.edu.lms.common.response.ApiResponse;
 import com.edu.lms.course.entity.Course;
 import com.edu.lms.course.entity.CourseStatus;
 import com.edu.lms.course.repository.CourseRepository;
+import com.edu.lms.enrollment.dto.EnrolledCourseDto;
 import com.edu.lms.enrollment.entity.Enrollment;
 import com.edu.lms.enrollment.entity.EnrollmentStatus;
 import com.edu.lms.enrollment.repository.EnrollmentRepository;
+import com.edu.lms.enrollment.service.EnrollmentService;
 import com.edu.lms.user.entity.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -26,7 +32,8 @@ import java.util.UUID;
 public class EnrollmentController {
 
     private final EnrollmentRepository enrollmentRepository;
-    private final CourseRepository     courseRepository;
+    private final CourseRepository courseRepository;
+    private final EnrollmentService enrollmentService;
 
     // ── Enroll ───────────────────────────────────────────────────────────────
 
@@ -84,6 +91,26 @@ public class EnrollmentController {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Status checked", new EnrollmentStatusDto(enrolled)));
+    }
+
+    @GetMapping("/my")
+    @Operation(summary = "My Learning — all enrolled courses, paginated, with progress")
+    public ResponseEntity<ApiResponse<Page<EnrolledCourseDto>>> myLearning(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(ApiResponse.success("Fetched", enrollmentService.getMyLearning(currentUser, pageable)));
+    }
+
+    @GetMapping("/continue-learning")
+    @Operation(summary = "Continue Learning — in-progress courses, most recently accessed first")
+    public ResponseEntity<ApiResponse<List<EnrolledCourseDto>>> continueLearning(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(defaultValue = "5") int limit) {
+
+        return ResponseEntity.ok(ApiResponse.success("Fetched", enrollmentService.getContinueLearning(currentUser, limit)));
     }
 
     public record EnrollmentStatusDto(boolean enrolled) {}

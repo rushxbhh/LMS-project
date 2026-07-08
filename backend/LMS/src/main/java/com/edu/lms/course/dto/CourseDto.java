@@ -37,4 +37,10 @@ public class CourseDto {
     private Integer totalLessons;
 
     private Integer totalDurationMinutes;
+
+    private Double averageRating;
+
+    private Integer reviewCount;
+
+    private Integer enrolledCount;
 }
