@@ -47,4 +47,18 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     GROUP BY c.id, c.title, c.status
     """)
     List<CourseEnrollmentSummaryDto> findEnrollmentSummary();
+
+
+
+    long countByTeacher(User teacher);
+
+    long countByTeacherAndStatus(
+            User teacher,
+            CourseStatus status
+    );
+
+    long countByTeacherAndIsFree(
+            User teacher,
+            Boolean isFree
+    );
 }
