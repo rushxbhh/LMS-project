@@ -3,6 +3,7 @@ package com.edu.lms.lesson.service;
 import com.edu.lms.lesson.dto.CreateLessonRequest;
 import com.edu.lms.lesson.dto.LessonDto;
 import com.edu.lms.lesson.dto.UpdateLessonRequest;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -17,4 +18,10 @@ public interface LessonService {
     LessonDto getLesson(UUID lessonId);
 
     void deleteLesson(UUID lessonId);
+
+    LessonDto uploadLessonVideo(UUID lessonId, MultipartFile file);
+
+    void deleteLessonVideo(UUID lessonId);
+
+    String getLessonVideoUrl(UUID lessonId);
 }

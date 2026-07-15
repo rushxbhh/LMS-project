@@ -60,7 +60,9 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/register/local",
-                                "/api/auth/google/login"
+                                "/api/auth/google/login",
+                                "/api/v1/lessons/*",
+                                "/api/v1/lessons/*/video-url"
                         ).permitAll()
                         // ===== Swagger =====
                         .requestMatchers(

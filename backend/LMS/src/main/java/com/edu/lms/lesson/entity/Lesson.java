@@ -33,6 +33,12 @@ public class Lesson {
     @Column(length = 10000)
     private String content;
 
+    private String videoObjectKey;
+    // storage key, e.g. videos/{courseId}/{lessonId}/{uuid}.mp4
+    private String videoContentType;
+
+    private Long   videoSizeBytes;
+
     private Integer durationMinutes;
 
     private Integer orderIndex;

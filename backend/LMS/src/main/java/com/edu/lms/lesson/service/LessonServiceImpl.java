@@ -1,5 +1,6 @@
 package com.edu.lms.lesson.service;
 
+import com.edu.lms.common.exception.BusinessException;
 import com.edu.lms.common.exception.ResourceNotFoundException;
 import com.edu.lms.lesson.dto.CreateLessonRequest;
 import com.edu.lms.lesson.dto.LessonDto;
@@ -12,6 +13,8 @@ import com.edu.lms.lesson.repository.LessonRepository;
 import com.edu.lms.module.repository.ModuleRepository;
 import com.edu.lms.enrollment.entity.EnrollmentStatus;
 import com.edu.lms.enrollment.repository.EnrollmentRepository;
+import com.edu.lms.storage.config.StorageProperties;
+import com.edu.lms.storage.service.FileStorageService;
 import com.edu.lms.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -19,8 +22,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.Duration;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,6 +39,11 @@ public class LessonServiceImpl implements LessonService {
     private final LessonRepository     lessonRepository;
     private final ModuleRepository     moduleRepository;
     private final CourseRepository     courseRepository;
+    private final StorageProperties storageProperties;
+    private final FileStorageService fileStorageService;
+
+    private static final Set<String> ALLOWED_VIDEO_TYPES = Set.of(
+            "video/mp4", "video/webm", "video/quicktime", "video/x-matroska");
 
     // ── Create ───────────────────────────────────────────────────────────────
 
@@ -159,6 +172,105 @@ public class LessonServiceImpl implements LessonService {
         }
         if (auth.getPrincipal() instanceof User u) return Optional.of(u);
         return Optional.empty();
+    }
+
+    @Override
+    @Transactional
+    public LessonDto uploadLessonVideo(UUID lessonId, MultipartFile file) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson not found"));
+        Course course = lesson.getModule().getCourse();
+
+        requireCourseOwnerOrAdmin(course);   // ownership check you already had
+        validateVideoFile(file);
+
+        // Replace flow: don't orphan the old object in the bucket
+        if (lesson.getVideoObjectKey() != null) {
+            fileStorageService.deleteFile(lesson.getVideoObjectKey());
+        }
+
+        String extension = extractExtension(file.getOriginalFilename());
+        String key = "videos/%s/%s/%s.%s".formatted(
+                course.getId(), lesson.getId(), UUID.randomUUID(), extension);
+
+        try (InputStream in = file.getInputStream()) {
+            fileStorageService.uploadFile(in, key, file.getContentType(), file.getSize());
+        } catch (IOException e) {
+            throw new BusinessException("Could not read uploaded video file");
+        }
+
+        lesson.setVideoObjectKey(key);
+        lesson.setVideoContentType(file.getContentType());
+        lesson.setVideoSizeBytes(file.getSize());
+        lesson = lessonRepository.save(lesson);
+        return mapToDto(lesson);
+    }
+
+    @Override
+    @Transactional
+    public void deleteLessonVideo(UUID lessonId) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson not found"));
+        requireCourseOwnerOrAdmin(lesson.getModule().getCourse());
+
+        if (lesson.getVideoObjectKey() == null) {
+            throw new BusinessException("This lesson has no uploaded video");
+        }
+        fileStorageService.deleteFile(lesson.getVideoObjectKey());
+        lesson.setVideoObjectKey(null);
+        lesson.setVideoContentType(null);
+        lesson.setVideoSizeBytes(null);
+        lessonRepository.save(lesson);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getLessonVideoUrl(UUID lessonId) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson not found"));
+
+        if (lesson.getVideoObjectKey() == null) {
+            throw new ResourceNotFoundException("This lesson has no uploaded video");
+        }
+
+        if (Boolean.TRUE.equals(lesson.getFreePreview())) {
+            return fileStorageService.generatePresignedUrl(
+                    lesson.getVideoObjectKey(), Duration.ofSeconds(storageProperties.getPresignedUrlExpirySeconds()));
+        }
+
+        User caller = currentUser()
+                .orElseThrow(() -> new AccessDeniedException("Login required to stream this lesson"));
+
+        Course course = lesson.getModule().getCourse();
+        boolean isOwnerOrAdmin = caller.getRole() == User.Role.ADMIN
+                || (course.getTeacher() != null && course.getTeacher().getId().equals(caller.getId()));
+
+        boolean enrolled = enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(
+                caller.getId(), course.getId(), EnrollmentStatus.ACTIVE);
+
+        if (!isOwnerOrAdmin && !enrolled) {
+            throw new AccessDeniedException("Enroll in this course to stream this lesson");
+        }
+
+        return fileStorageService.generatePresignedUrl(
+                lesson.getVideoObjectKey(), Duration.ofSeconds(storageProperties.getPresignedUrlExpirySeconds()));
+    }
+
+    private void validateVideoFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("Video file is required");
+        }
+        if (!ALLOWED_VIDEO_TYPES.contains(file.getContentType())) {
+            throw new BusinessException("Unsupported video format: " + file.getContentType());
+        }
+        if (file.getSize() > storageProperties.getMaxVideoSizeBytes()) {
+            throw new BusinessException("Video exceeds the maximum allowed size");
+        }
+    }
+
+    private String extractExtension(String filename) {
+        if (filename == null || !filename.contains(".")) return "mp4";
+        return filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
     }
 
     private LessonDto mapToDto(Lesson lesson) {
